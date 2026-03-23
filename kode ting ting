@@ -1,0 +1,102 @@
+#include <Wire.h>
+#include "rgb_lcd.h"
+#include <SoftwareSerial.h>
+#include <DFRobotDFPlayerMini.h>
+
+rgb_lcd lcd;
+
+// DFPlayer
+SoftwareSerial mySerial(8, 9);
+DFRobotDFPlayerMini player;
+
+// Pins
+const int moisturePin = A0;
+const int buttonPin = 2;
+const int ledPin = 3; // LED i knap
+
+// Indstillinger
+int dryValue = 700;   // tør jord (justér!)
+int wetValue = 300;   // våd jord (justér!)
+int moistureThreshold = 40; // % hvor den siger "vand mig"
+
+unsigned long lastPlayTime = 0;
+const unsigned long interval = 900000;
+
+bool muted = false;
+
+void setup() {
+  Serial.begin(9600);
+  mySerial.begin(9600);
+
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(ledPin, OUTPUT);
+
+  lcd.begin(16, 2);
+  lcd.setRGB(0, 255, 0);
+
+  if (!player.begin(mySerial)) {
+    Serial.println("DFPlayer fejl!");
+    while (true);
+  }
+
+  player.volume(3);
+
+  lcd.print("System klar");
+  delay(2000);
+  lcd.clear();
+}
+
+void loop() {
+  int rawValue = analogRead(moisturePin);
+
+  // Omregn til %
+  int moisturePercent = map(rawValue, dryValue, wetValue, 0, 100);
+  moisturePercent = constrain(moisturePercent, 0, 100);
+
+  // Vis %
+  lcd.setCursor(0, 0);
+  lcd.print("Fugt: ");
+  lcd.print(moisturePercent);
+  lcd.print("%   ");
+
+  // Tør jord?
+  if (moisturePercent < moistureThreshold) {
+    lcd.setCursor(0, 1);
+    lcd.print("VAND MIG!      ");
+
+    unsigned long currentTime = millis();
+
+    if (currentTime - lastPlayTime >= interval && !muted) {
+      player.play(1);
+      lastPlayTime = currentTime;
+    }
+  } else {
+    lcd.setCursor(0, 1);
+    lcd.print("OK             ");
+  }
+
+  // Knap tryk (toggle mute)
+  if (digitalRead(buttonPin) == LOW) {
+    muted = !muted;
+
+    if (muted) {
+      player.stop();
+      lcd.setCursor(0, 1);
+      lcd.print("Muted          ");
+    } else {
+      lcd.setCursor(0, 1);
+      lcd.print("Unmuted        ");
+    }
+
+    delay(500); // debounce
+  }
+
+  // LED styring
+  if (muted) {
+    digitalWrite(ledPin, HIGH); // tænd LED
+  } else {
+    digitalWrite(ledPin, LOW);  // sluk LED
+  }
+
+  delay(500);
+}
