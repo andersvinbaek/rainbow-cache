@@ -3,100 +3,93 @@
 #include <SoftwareSerial.h>
 #include <DFRobotDFPlayerMini.h>
 
+// LCD
 rgb_lcd lcd;
 
 // DFPlayer
 SoftwareSerial mySerial(8, 9);
 DFRobotDFPlayerMini player;
 
-// Pins
-const int moisturePin = A0;
-const int buttonPin = 2;
-const int ledPin = 3; // LED i knap
+// Sensor
+const int sensorPin = A0;
 
-// Indstillinger
-int dryValue = 700;   // tør jord (justér!)
-int wetValue = 300;   // våd jord (justér!)
-int moistureThreshold = 40; // % hvor den siger "vand mig"
+// kalibrering
+int dryValue = 800;
+int wetValue = 500;
 
-unsigned long lastPlayTime = 0;
-const unsigned long interval = 900000;
-
-bool muted = false;
+// undgår spam
+int lastState = -1;
 
 void setup() {
-  Serial.begin(9600);
-  mySerial.begin(9600);
-
-  pinMode(buttonPin, INPUT_PULLUP);
-  pinMode(ledPin, OUTPUT);
-
+  // LCD
   lcd.begin(16, 2);
   lcd.setRGB(0, 255, 0);
-
+  lcd.print("Starting...");
+  
+  // Serial til DFPlayer
+  mySerial.begin(9600);
+  
   if (!player.begin(mySerial)) {
-    Serial.println("DFPlayer fejl!");
+    lcd.clear();
+    lcd.print("DFPlayer error");
     while (true);
   }
 
-  player.volume(3);
+  player.volume(5); // 0–30
 
-  lcd.print("System klar");
   delay(2000);
   lcd.clear();
 }
 
 void loop() {
-  int rawValue = analogRead(moisturePin);
+  int sensorValue = analogRead(sensorPin);
 
-  // Omregn til %
-  int moisturePercent = map(rawValue, dryValue, wetValue, 0, 100);
+  int moisturePercent = map(sensorValue, dryValue, wetValue, 0, 100);
   moisturePercent = constrain(moisturePercent, 0, 100);
 
-  // Vis %
   lcd.setCursor(0, 0);
-  lcd.print("Fugt: ");
+  lcd.print("Val:");
+  lcd.print(sensorValue);
+  lcd.print("   ");
+
+  lcd.setCursor(9, 0);
   lcd.print(moisturePercent);
-  lcd.print("%   ");
+  lcd.print("% ");
 
-  // Tør jord?
-  if (moisturePercent < moistureThreshold) {
-    lcd.setCursor(0, 1);
-    lcd.print("VAND MIG!      ");
+  int currentState;
 
-    unsigned long currentTime = millis();
+  lcd.setCursor(0, 1);
 
-    if (currentTime - lastPlayTime >= interval && !muted) {
-      player.play(1);
-      lastPlayTime = currentTime;
+  if (moisturePercent < 30) {
+    lcd.print("Dry soil       ");
+    lcd.setRGB(255, 0, 0);
+    currentState = 0;
+  } 
+  else if (moisturePercent < 70) {
+    lcd.print("Moist soil     ");
+    lcd.setRGB(255, 165, 0);
+    currentState = 1;
+  } 
+  else {
+    lcd.print("Wet soil       ");
+    lcd.setRGB(0, 0, 255);
+    currentState = 2;
+  }
+
+  // lyd til hvilken state
+  if (currentState != lastState) {
+    if (currentState == 0) {
+      player.play(1); // 0001.mp3
+    } 
+    else if (currentState == 1) {
+      player.play(2); // 0002.mp3
+    } 
+    else {
+      player.play(3); // 0003.mp3
     }
-  } else {
-    lcd.setCursor(0, 1);
-    lcd.print("OK             ");
+
+    lastState = currentState;
   }
 
-  // Knap tryk (toggle mute)
-  if (digitalRead(buttonPin) == LOW) {
-    muted = !muted;
-
-    if (muted) {
-      player.stop();
-      lcd.setCursor(0, 1);
-      lcd.print("Muted          ");
-    } else {
-      lcd.setCursor(0, 1);
-      lcd.print("Unmuted        ");
-    }
-
-    delay(500); // debounce
-  }
-
-  // LED styring
-  if (muted) {
-    digitalWrite(ledPin, HIGH); // tænd LED
-  } else {
-    digitalWrite(ledPin, LOW);  // sluk LED
-  }
-
-  delay(500);
+  delay(1000);
 }
