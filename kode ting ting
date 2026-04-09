@@ -13,29 +13,29 @@ DFRobotDFPlayerMini player;
 // Sensor
 const int sensorPin = A0;
 
-// kalibrering
-int dryValue = 800;
-int wetValue = 500;
+// Calibration (CHANGE THESE)
+int dryValue = 700;
+int wetValue = 400;
 
-// undgår spam
+// Track last state (avoid spam playing)
 int lastState = -1;
 
 void setup() {
   // LCD
   lcd.begin(16, 2);
   lcd.setRGB(0, 255, 0);
-  lcd.print("Starting...");
+  lcd.print("Starter...");
   
-  // Serial til DFPlayer
+  // Serial for DFPlayer
   mySerial.begin(9600);
   
   if (!player.begin(mySerial)) {
     lcd.clear();
-    lcd.print("DFPlayer error");
+    lcd.print("DFPlayer fejl");
     while (true);
   }
 
-  player.volume(5); // 0–30
+  player.volume(20); // 0–30
 
   delay(2000);
   lcd.clear();
@@ -61,32 +61,30 @@ void loop() {
   lcd.setCursor(0, 1);
 
   if (moisturePercent < 30) {
-    lcd.print("Dry soil       ");
+    lcd.print("Toer jord       ");
     lcd.setRGB(255, 0, 0);
     currentState = 0;
   } 
   else if (moisturePercent < 70) {
-    lcd.print("Moist soil     ");
+    lcd.print("Fugtig jord     ");
     lcd.setRGB(255, 165, 0);
     currentState = 1;
   } 
   else {
-    lcd.print("Wet soil       ");
+    lcd.print("Vaadt jord       ");
     lcd.setRGB(0, 0, 255);
     currentState = 2;
   }
 
-  // lyd til hvilken state
+  // 🔊 Play sound ONLY when state changes
   if (currentState != lastState) {
     if (currentState == 0) {
       player.play(1); // 0001.mp3
     } 
-    else if (currentState == 1) {
-      player.play(2); // 0002.mp3
-    } 
-    else {
-      player.play(3); // 0003.mp3
+    if (currentState == 2) {
+      player.play(2);
     }
+   
 
     lastState = currentState;
   }
