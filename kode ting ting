@@ -13,11 +13,11 @@ DFRobotDFPlayerMini player;
 // Sensor
 const int sensorPin = A0;
 
-// Calibration (CHANGE THESE)
-int dryValue = 700;
-int wetValue = 400;
+// kalibrering
+int dryValue = 600;
+int wetValue = 300;
 
-// Track last state (avoid spam playing)
+// holder øje med den sidste state
 int lastState = -1;
 
 void setup() {
@@ -26,8 +26,11 @@ void setup() {
   lcd.setRGB(0, 255, 0);
   lcd.print("Starter...");
   
-  // Serial for DFPlayer
+  // Serial til DFPlayer
   mySerial.begin(9600);
+
+  //Serial til plotter
+  Serial.begin(9600);
   
   if (!player.begin(mySerial)) {
     lcd.clear();
@@ -35,7 +38,7 @@ void setup() {
     while (true);
   }
 
-  player.volume(20); // 0–30
+  player.volume(15); // 0–30
 
   delay(2000);
   lcd.clear();
@@ -44,8 +47,8 @@ void setup() {
 void loop() {
   int sensorValue = analogRead(sensorPin);
 
-  int moisturePercent = map(sensorValue, dryValue, wetValue, 0, 100);
-  moisturePercent = constrain(moisturePercent, 0, 100);
+  int fugtighedProcent = map(sensorValue, dryValue, wetValue, 0, 100);
+  fugtighedProcent = constrain(fugtighedProcent, 0, 100);
 
   lcd.setCursor(0, 0);
   lcd.print("Val:");
@@ -53,19 +56,24 @@ void loop() {
   lcd.print("   ");
 
   lcd.setCursor(9, 0);
-  lcd.print(moisturePercent);
+  lcd.print(fugtighedProcent);
   lcd.print("% ");
+  //plotter
+  Serial.print(sensorValue);
+  Serial.print(" ");
+  Serial.println(fugtighedProcent);
+
 
   int currentState;
 
   lcd.setCursor(0, 1);
 
-  if (moisturePercent < 30) {
+  if (fugtighedProcent < 30) {
     lcd.print("Toer jord       ");
     lcd.setRGB(255, 0, 0);
     currentState = 0;
   } 
-  else if (moisturePercent < 70) {
+  else if (fugtighedProcent < 70) {
     lcd.print("Fugtig jord     ");
     lcd.setRGB(255, 165, 0);
     currentState = 1;
@@ -76,7 +84,7 @@ void loop() {
     currentState = 2;
   }
 
-  // 🔊 Play sound ONLY when state changes
+  // spil lyd når staten ændrer sig
   if (currentState != lastState) {
     if (currentState == 0) {
       player.play(1); // 0001.mp3
